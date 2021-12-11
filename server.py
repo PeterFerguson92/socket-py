@@ -59,7 +59,8 @@ def Main():
                     print(general_error_message)
                     c.send(general_error_message.encode()) 
                     c.close;
-            except OSError:
+            except OSError as os:
+                print(os)
                 # file not found error handling
                 print (file_not_found_error_message)
                 c.send(file_not_found_error_message.encode())
@@ -67,8 +68,8 @@ def Main():
     except socket.error:
         # connection error handling 
         print(connection_error_message)
+        c.send(file_not_found_error_message.encode())
         c.close;
-
 
 if __name__ == '__main__':
     Main()
