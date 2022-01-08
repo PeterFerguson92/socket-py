@@ -1,6 +1,10 @@
 import socket  # Import socket module
 import json # Import json module
 
+message="This is a very secret message!!!"
+c_public=151
+c_private=157
+
 def Main():
     # setting up connection properties
     host = '127.0.0.1'
@@ -58,6 +62,9 @@ def authenticate(s):
 
 def process_file(s):
     authenticate(s)
+    data = s.recv(1024).decode('utf-8') 
+    print(data)
+
     # file_name = input("Name of file to process: ")
     # s.send(file_name.encode('utf-8'))
     # s.shutdown(socket.SHUT_WR) 

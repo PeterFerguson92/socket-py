@@ -2,7 +2,6 @@
 import socket
 import json
 import hashlib
-import os
 import sqlite3
 
 # import processor function
@@ -11,14 +10,16 @@ from csv_processor import process
 general_error_message = 'File not found. Check the file name and try again.'
 file_not_found_error_message = 'Something went wrong while processing, please check the format and content of file'
 connection_error_message = 'Could not start up server, please contact the technical team'
-salt = os.urandom(32)
+message = 'Python is fun'
+
+# convert string to bytes
+byte_message = bytes(message, 'utf-8')
+salt = 23
 
 def Main():
-
     db_connection = sqlite3.connect('shows.db')
     cursor = db_connection.cursor()
-    cursor.execute('''CREATE TABLE IF NOT EXISTS users
-              (username TEXT, password TEXT)''')
+    cursor.execute('''CREATE TABLE IF NOT EXISTS users (username TEXT, password TEXT)''')
     # connection settings
     host = '127.0.0.1'
     port = 65432
@@ -29,7 +30,7 @@ def Main():
         print("Starting up server")
         s.bind((host,port))
         print("Server Running...")
-        s.listen(1)
+        s.listen()
 
         # This loop accepts a connection, then reads from the 
         # client until done
@@ -46,13 +47,14 @@ def Main():
             if(menu_selection == "1"):
                 create_user(db_connection, cursor, username, password)
             if(menu_selection == "2"):
-                authenticate_user(cursor, username, password)
+               result = authenticate_user(cursor, username, password)
+               c.send(result.encode())
 
     except socket.error:
         # connection error handling 
         print(connection_error_message)
         c.send(file_not_found_error_message.encode())
-        c.close
+        c.close()
 
 
 def create_user(db_connection, cursor, username, password):    
@@ -74,17 +76,17 @@ def authenticate_user(cursor, username, password):
         user_password = user[1]
         if(user_password == hash_pw(password)):
             print("user logged successfully")
-            return True
+            return "1"
         else:
             print("user logged failed") 
-            return False 
+            return "-1"
 
 def get_user_by_username(cursor, username):
     cursor.execute("SELECT * FROM users WHERE username=?", [username])
     return cursor.fetchall()
 
 def hash_pw(password):
-    return hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt ,100000, dklen=128) 
+    return hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), byte_message ,100000, dklen=128) 
 
 def process_file(c):
     filename = ''
@@ -110,14 +112,13 @@ def process_file(c):
                 # back the client in bytes-like object format
                 encoded_result = json.dumps(result, indent=2).encode('utf-8')
                 c.send(encoded_result)
-
                 # closing of the connection
                 c.close()
             except Exception:
                 # file processing error handling
                 print(general_error_message)
                 c.send(general_error_message.encode()) 
-                c.close;
+                c.close
         except OSError as os:
             print(os)
             # file not found error handling
