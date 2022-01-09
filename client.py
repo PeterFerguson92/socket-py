@@ -1,14 +1,17 @@
 import socket  # Import socket module
 import json # Import json module
-
+from dh_processor import *
 message="This is a very secret message!!!"
-c_public=151
-c_private=157
+public_key_1 = 23
+public_key_2 = 9
+client_private_key = 4
 
 def Main():
     # setting up connection properties
     host = '127.0.0.1'
     port = 65432
+    ThreadCount = 0
+
 
     try:
         # open connection with the setting above
@@ -18,6 +21,10 @@ def Main():
         s.settimeout(5)   # 5 seconds
         print("Connection with server: OK")
 
+        generated_key = generate_key(public_key_2, client_private_key, public_key_1)
+        s.send(str(generated_key).encode())
+        server_generated_key = s.recv(1024).decode('utf-8');
+        client_symmetric_key = generate_key(int(server_generated_key), client_private_key, public_key_1)
         print("Select one")
         print("1 - create new user")
         print("2 - Process Cvs")
@@ -26,7 +33,7 @@ def Main():
         if(menu_selection == "1"):
             create_user(s)
         else:
-            process_file(s)
+            process_file(s, client_symmetric_key)
         # input of the csv file name to process(hard-coded or by user input)
         # Filename = 'csv.txt'
         
@@ -52,18 +59,19 @@ def create_user(s):
 def authenticate(s):
     username = input("Please insert username: ")
     password = input("Please insert password: ")
+    request_data = {"menu_selection": "2","username": username,"password": password}   
+    s.sendall(json.dumps(request_data).encode('utf-8'))
 
-    request_data = {
-            "menu_selection": "2",
-            "username": username,
-            "password": password
-        }   
-    s.send(str.encode(json.dumps(request_data)))
-
-def process_file(s):
+def process_file(s, key):
     authenticate(s)
     data = s.recv(1024).decode('utf-8') 
-    print(data)
+    if(data == "1"):
+        request_data = {"menu_selection": "0","message": encrypt_message(message, key)}   
+        s.sendall(json.dumps(request_data).encode('utf-8'))
+    else:
+        print("Login failed")
+    
+    
 
     # file_name = input("Name of file to process: ")
     # s.send(file_name.encode('utf-8'))

@@ -6,6 +6,7 @@ import sqlite3
 
 # import processor function
 from csv_processor import process
+from dh_processor import *
 
 general_error_message = 'File not found. Check the file name and try again.'
 file_not_found_error_message = 'Something went wrong while processing, please check the format and content of file'
@@ -14,9 +15,12 @@ message = 'Python is fun'
 
 # convert string to bytes
 byte_message = bytes(message, 'utf-8')
-salt = 23
+public_key_1 = 23
+public_key_2 = 9
+server_private_key = 3
 
 def Main():
+
     db_connection = sqlite3.connect('shows.db')
     cursor = db_connection.cursor()
     cursor.execute('''CREATE TABLE IF NOT EXISTS users (username TEXT, password TEXT)''')
@@ -30,31 +34,54 @@ def Main():
         print("Starting up server")
         s.bind((host,port))
         print("Server Running...")
-        s.listen()
+        s.listen(5)
+        c, addr = s.accept()
+        print("Connection from: " + str(addr))
+        
+        generated_key = generate_key(public_key_2, server_private_key, public_key_1)
+        client_generated_key = c.recv(1024).decode('utf-8');
+        c.send(str(generated_key).encode())
+        server_symmetric_key = generate_key(int(client_generated_key), server_private_key, public_key_1)
 
         # This loop accepts a connection, then reads from the 
         # client until done
         while True:
-            c, addr = s.accept()
-            print("Connection from: " + str(addr))
-            data = c.recv(1024).decode('utf-8');
-            json_acceptable_string = data.replace("'", "\"") 
-            result = json.loads(json_acceptable_string)
-            menu_selection = str(result['menu_selection'])
-            username = result['username']
-            password = result['password']
-
-            if(menu_selection == "1"):
-                create_user(db_connection, cursor, username, password)
-            if(menu_selection == "2"):
-               result = authenticate_user(cursor, username, password)
-               c.send(result.encode())
+            data = c.recv(1024).decode('utf-8')
+            print(data)
+            if not data:
+                break
+            else: 
+                payload = json.loads(data) 
+                print(payload)
+                menu_selection = str(payload['menu_selection'])
+                print(menu_selection)
+                if(menu_selection == "0"):
+                    m = decrypt_message(str(payload['message']), server_symmetric_key)
+                    print(m)
+                else:
+                    username = str(payload['username'])
+                    password = str(payload['password'])
+                if(menu_selection == "1"):    
+                    create_user(db_connection, cursor, username, password)
+                if(menu_selection == "2"):
+                    result = authenticate_user(cursor, username, password)
+                    c.send(result.encode())
 
     except socket.error:
         # connection error handling 
         print(connection_error_message)
         c.send(file_not_found_error_message.encode())
         c.close()
+
+def threaded_client(connection):
+    connection.send(str.encode('Welcome to the Servern'))
+    while True:
+        data = connection.recv(2048)
+        reply = 'Server Says: ' + data.decode('utf-8')
+        if not data:
+            break
+        connection.sendall(str.encode(reply))
+    connection.close()        
 
 
 def create_user(db_connection, cursor, username, password):    

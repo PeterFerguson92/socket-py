@@ -1,38 +1,15 @@
-s_public=197
-s_private=199
+def generate_key(public_key_1,private_key, public_key_2):
+    return int(pow(public_key_1, private_key, public_key_2))
 
+def encrypt_message(message, key):
+    print(message)
+    encrypted_message = ""
+    for c in message:
+        encrypted_message += chr(ord(c)+key)
+    return encrypted_message    
 
-c_public=151
-c_private=157
-
-class DH_Endpoint(object):
-    def __init__(self, public_key1, public_key2, private_key):
-        self.public_key1 = public_key1
-        self.public_key2 = public_key2
-        self.private_key = private_key
-        self.full_key = None
-        
-    def generate_partial_key(self):
-        partial_key = self.public_key1**self.private_key
-        partial_key = partial_key%self.public_key2
-        return partial_key
-    
-    def generate_full_key(self, partial_key_r):
-        full_key = partial_key_r**self.private_key
-        full_key = full_key%self.public_key2
-        self.full_key = full_key
-        return full_key
-    
-    def encrypt_message(self, message):
-        encrypted_message = ""
-        key = self.full_key
-        for c in message:
-            encrypted_message += chr(ord(c)+key)
-        return encrypted_message
-    
-    def decrypt_message(self, encrypted_message):
-        decrypted_message = ""
-        key = self.full_key
-        for c in encrypted_message:
-            decrypted_message += chr(ord(c)-key)
-        return decrypted_message
+def decrypt_message(encrypted_message, key):
+    decrypted_message = ""
+    for c in encrypted_message:
+        decrypted_message += chr(ord(c)-key)
+    return decrypted_message
