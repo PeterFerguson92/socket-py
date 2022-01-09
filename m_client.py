@@ -1,10 +1,13 @@
 import socket
-import json
+import pickle
 from dh_processor import *
+import sys
 
 public_key_1 = 23
 public_key_2 = 9
 client_private_key = 4
+
+import sys
 
 def Main():
     # setting up connection properties
@@ -15,59 +18,57 @@ def Main():
 
     try:
         client_socket.connect((host, port))
-        client_socket.settimeout(5)   # 5 seconds
+        client_socket.settimeout(30)   # 5 seconds
         print("Connection with server: OK")
-        Response = client_socket.recv(1024)
-        print("1 - Create new user")
-        print("2 - Authenticate and send encrypted message")
-
+        print("1 - List messages")
+        print("2 - Send encrypted message")
         selection = input("Select operation to do: ")
         if(selection == "1"):
-            create_user(client_socket)
+            list_messages(client_socket)
         else:
             send_message(client_socket)
-        while True:
-            pass
     except socket.error as e:
         print("Connection with server: Failed")
         print ("Caught exception socket.error : %s" % e)
 
     
         
-def create_user(s):
-    username = input("Please insert username: ")
-    password = input("Please insert password: ")
-    confirm_password = input("Please type again password: ")
-
-    if(username == "" and password == "" and password == confirm_password ):
-        print("Could not process credentials")
-    else:
-        data = {
-            "menu_selection": "1",
-            "username": username,
-            "password": password
-        }   
-        s.send(str.encode(json.dumps(data)))
-
-def send_message(client_socket):
-    authenticate(client_socket)
+def list_messages(client_socket):
     while True:
-        generated_key = generate_key(public_key_2, client_private_key, public_key_1)
-        client_socket.send(str.encode(str(generated_key)))
-        server_generated_key = client_socket.recv(1024).decode('utf-8');
-        client_symmetric_key = generate_key(int(server_generated_key), client_private_key, public_key_1)
-        message = input('Type message: ')
+        client_symmetric_key = get_ecrypted_key(client_socket)
+        message = "list_messages"
         client_socket.send(str.encode(encrypt_message(message, client_symmetric_key)))
+        response = client_socket.recv(4096)
+        data_arr = pickle.loads(response)
+        for myItem in data_arr:
+            print(myItem[0])
         response = client_socket.recv(1024)
         m = decrypt_message(str(response.decode('utf-8')), client_symmetric_key)
         print(m)
+   
+def send_message(client_socket):
+    while True:
+        client_symmetric_key = get_ecrypted_key(client_socket)
+        message = input('Type message: ')
+        if(len(message) > 3):
+            client_socket.send(str.encode(encrypt_message(message, client_symmetric_key)))
+            response = client_socket.recv(1024)
+            m = decrypt_message(str(response.decode('utf-8')), client_symmetric_key)
+        else:
+            print("at least 3 characters")
+            sys.exit()
 
-def authenticate(s):
-    username = input("Please insert username: ")
-    password = input("Please insert password: ")
-    request_data = {"menu_selection": "2","username": username,"password": password}   
-    s.sendall(json.dumps(request_data).encode('utf-8'))
 
+def get_ecrypted_key(client_socket):
+    generated_key = generate_key(public_key_2, client_private_key, public_key_1)
+    print(generated_key)
+    client_socket.send(str.encode(str(generated_key)))
+    server_generated_key = client_socket.recv(1024).decode('utf-8')
+    return generate_key(int(server_generated_key), client_private_key, public_key_1)
 
 if __name__ == '__main__':
-    Main()
+    try:
+        Main()
+    except KeyboardInterrupt:
+        print ("Interrupted")
+        sys.exit(0)
